@@ -1,17 +1,15 @@
-
 import java.io.*;
 
 public class Student implements Serializable {
     private static final long serialVersionUID = 1L;
-    public static final int NAME_LENGTH = 32; // фиксированная длина имени
-    public static final int RECORD_SIZE = 4 + NAME_LENGTH + 8 + 4; // int + char[32] + double + int
+    public static final int NAME_LENGTH = 32;
+    public static final int RECORD_SIZE = 4 + NAME_LENGTH * 2 + 8 + 4;
 
     private int studentId;
     private String name;
     private double gpa;
     private int enrollmentYear;
 
-    // Конструктор
     public Student(int studentId, String name, double gpa, int enrollmentYear) {
         this.studentId = studentId;
         this.name = padString(name, NAME_LENGTH);
@@ -19,18 +17,15 @@ public class Student implements Serializable {
         this.enrollmentYear = enrollmentYear;
     }
 
-    // Getters
     public int getStudentId() { return studentId; }
     public String getName() { return trimString(name); }
     public double getGpa() { return gpa; }
     public int getEnrollmentYear() { return enrollmentYear; }
 
-    // Setters (для редактирования)
     public void setName(String name) { this.name = padString(name, NAME_LENGTH); }
     public void setGpa(double gpa) { this.gpa = gpa; }
     public void setEnrollmentYear(int year) { this.enrollmentYear = year; }
 
-    // Вспомогательные методы
     private static String padString(String str, int length) {
         if (str == null) str = "";
         if (str.length() > length) return str.substring(0, length);
@@ -41,7 +36,6 @@ public class Student implements Serializable {
         return str.trim();
     }
 
-    // Запись в RandomAccessFile
     public void writeTo(RandomAccessFile file) throws IOException {
         file.writeInt(studentId);
         file.writeChars(padString(name, NAME_LENGTH));
@@ -49,7 +43,6 @@ public class Student implements Serializable {
         file.writeInt(enrollmentYear);
     }
 
-    // Чтение из RandomAccessFile
     public static Student readFrom(RandomAccessFile file) throws IOException {
         int id = file.readInt();
         char[] nameChars = new char[NAME_LENGTH];
