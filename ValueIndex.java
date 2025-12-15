@@ -1,73 +1,179 @@
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.awt.event.ActionEvent;
+import java.io.IOException;
+import java.util.List;
 
-import java.io.*;
-import java.util.*;
+public class StudentGUI extends JFrame {
+    private StudentDatabase db;
+    private JTable table;
+    private DefaultTableModel tableModel;
 
-public class HashIndex {
-    private String indexPath;
-    private Map<Integer, List<Long>> index;
+    public StudentGUI() {
+        setTitle("Student File Database");
+        setSize(800, 600);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
-    public HashIndex(String indexPath) {
-        this.indexPath = indexPath;
-        this.index = new HashMap<>();
-        loadIndex();
+        tableModel = new DefaultTableModel(new Object[]{"ID", "Name", "GPA", "Year"}, 0);
+        table = new JTable(tableModel);
+        add(new JScrollPane(table), BorderLayout.CENTER);
+
+        JPanel panel = new JPanel(new GridLayout(1, 6));
+        JButton openBtn = new JButton("Open DB");
+        JButton addBtn = new JButton("Add");
+        JButton deleteBtn = new JButton("Delete by ID");
+        JButton searchBtn = new JButton("Search");
+        JButton editBtn = new JButton("Edit");
+        JButton backupBtn = new JButton("Backup");
+
+        panel.add(openBtn);
+        panel.add(addBtn);
+        panel.add(deleteBtn);
+        panel.add(searchBtn);
+        panel.add(editBtn);
+        panel.add(backupBtn);
+
+        add(panel, BorderLayout.SOUTH);
+
+        openBtn.addActionListener(e -> openDB());
+        addBtn.addActionListener(e -> addStudent());
+        deleteBtn.addActionListener(e -> deleteStudent());
+        searchBtn.addActionListener(e -> searchStudent());
+        editBtn.addActionListener(e -> editStudent());
+        backupBtn.addActionListener(e -> backupDB());
+
+        setVisible(true);
     }
 
-    private void loadIndex() {
-        index.clear();
-        File file = new File(indexPath);
-        if (!file.exists()) return;
+    private void openDB() {
+        String name = JOptionPane.showInputDialog(this, "DB Name:");
+        if (name == null || name.trim().isEmpty()) return;
+        try {
+            if (db != null) db.close();
+            db = new StudentDatabase(name.trim());
+            refreshTable();
+            JOptionPane.showMessageDialog(this, "DB opened!");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage());
+        }
+    }
 
-        try (DataInputStream in = new DataInputStream(new FileInputStream(file))) {
-            while (in.available() > 0) {
-                int hash = in.readInt();
-                long offset = in.readLong();
-                index.computeIfAbsent(hash, k -> new ArrayList<>()).add(offset);
+    private void refreshTable() {
+        tableModel.setRowCount(0);
+        if (db == null) return;
+        try {
+            List<Student> students = db.getAllStudents();
+            for (Student s : students) {
+                tableModel.addRow(new Object[]{
+                        s.getStudentId(),
+                        s.getName(),
+                        s.getGpa(),
+                        s.getEnrollmentYear()
+                });
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Refresh error");
         }
     }
 
-    public void saveIndex() {
-        try (DataOutputStream out = new DataOutputStream(new FileOutputStream(indexPath))) {
-            for (Map.Entry<Integer, List<Long>> entry : index.entrySet()) {
-                int hash = entry.getKey();
-                for (long offset : entry.getValue()) {
-                    out.writeInt(hash);
-                    out.writeLong(offset);
-                }
+    private void addStudent() {
+        try {
+            int id = Integer.parseInt(JOptionPane.showInputDialog("ID:"));
+            String name = JOptionPane.showInputDialog("Name:");
+            double gpa = Double.parseDouble(JOptionPane.showInputDialog("GPA:"));
+            int year = Integer.parseInt(JOptionPane.showInputDialog("Year:"));
+            if (db.addStudent(new Student(id, name, gpa, year))) {
+                refreshTable();
+                JOptionPane.showMessageDialog(this, "Added!");
+            } else {
+                JOptionPane.showMessageDialog(this, "ID already exists!");
             }
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Invalid input");
         }
     }
 
-    public void addEntry(String value, long offset) {
-        int hash = value.hashCode();
-        index.computeIfAbsent(hash, k -> new ArrayList<>()).add(offset);
-        saveIndex();
-    }
-
-    public void removeEntry(String value, long offset) {
-        int hash = value.hashCode();
-        List<Long> offsets = index.get(hash);
-        if (offsets != null) {
-            offsets.remove(offset);
-            if (offsets.isEmpty()) {
-                index.remove(hash);
+    private void deleteStudent() {
+        try {
+            int id = Integer.parseInt(JOptionPane.showInputDialog("ID to delete:"));
+            if (db.deleteStudentById(id)) {
+                refreshTable();
+                JOptionPane.showMessageDialog(this, "Deleted!");
+            } else {
+                JOptionPane.showMessageDialog(this, "Not found!");
             }
-            saveIndex();
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Error");
         }
     }
 
-    public List<Long> getOffsets(String value) {
-        int hash = value.hashCode();
-        return index.getOrDefault(hash, new ArrayList<>());
+    private void searchStudent() {
+        String field = JOptionPane.showInputDialog("Field (name/gpa/year):");
+        if (field == null) return;
+        try {
+            Object value;
+            if ("gpa".equals(field)) {
+                value = Double.parseDouble(JOptionPane.showInputDialog("Value:"));
+            } else if ("year".equals(field)) {
+                value = Integer.parseInt(JOptionPane.showInputDialog("Value:"));
+            } else {
+                value = JOptionPane.showInputDialog("Value:");
+            }
+            List<Student> results = db.findStudentsByField(field, value);
+            showSearchResults(results);
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Search error");
+        }
     }
 
+    private void showSearchResults(List<Student> results) {
+        if (results.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "No records found.");
+            return;
+        }
+        StringBuilder sb = new StringBuilder("Found:\n");
+        for (Student s : results) {
+            sb.append(s.toString()).append("\n");
+        }
+        JOptionPane.showMessageDialog(this, sb.toString());
+    }
 
-    public void clear() {
-        index.clear();
-        new File(indexPath).delete();
+    private void editStudent() {
+        try {
+            int id = Integer.parseInt(JOptionPane.showInputDialog("ID to edit:"));
+            Student s = db.findStudentById(id);
+            if (s == null) {
+                JOptionPane.showMessageDialog(this, "Not found!");
+                return;
+            }
+            String name = JOptionPane.showInputDialog("New name:", s.getName());
+            double gpa = Double.parseDouble(JOptionPane.showInputDialog("New GPA:", s.getGpa()));
+            int year = Integer.parseInt(JOptionPane.showInputDialog("New Year:", s.getEnrollmentYear()));
+            s.setName(name);
+            s.setGpa(gpa);
+            s.setEnrollmentYear(year);
+            db.updateStudent(s);
+            refreshTable();
+            JOptionPane.showMessageDialog(this, "Updated!");
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Edit error");
+        }
+    }
+
+    private void backupDB() {
+        try {
+            String name = JOptionPane.showInputDialog("Backup name:");
+            if (name != null && !name.isEmpty()) {
+                db.backup(name);
+                JOptionPane.showMessageDialog(this, "Backup created!");
+            }
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Backup failed: " + ex.getMessage());
+        }
+    }
+
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(StudentGUI::new);
     }
 }
