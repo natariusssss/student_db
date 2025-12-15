@@ -1,9 +1,7 @@
-
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.util.List;
 
@@ -75,7 +73,7 @@ public class StudentGUI extends JFrame {
                 });
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            JOptionPane.showMessageDialog(this, "Refresh error");
         }
     }
 
@@ -129,12 +127,14 @@ public class StudentGUI extends JFrame {
         }
     }
 
-
-
     private void showSearchResults(List<Student> results) {
+        if (results.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "No records found.");
+            return;
+        }
         StringBuilder sb = new StringBuilder("Found:\n");
         for (Student s : results) {
-            sb.append(s).append("\n");
+            sb.append(s.toString()).append("\n");
         }
         JOptionPane.showMessageDialog(this, sb.toString());
     }
@@ -169,13 +169,11 @@ public class StudentGUI extends JFrame {
                 JOptionPane.showMessageDialog(this, "Backup created!");
             }
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Backup failed");
+            JOptionPane.showMessageDialog(this, "Backup failed: " + ex.getMessage());
         }
     }
+
     public static void main(String[] args) {
         SwingUtilities.invokeLater(StudentGUI::new);
     }
-
-
 }
-
